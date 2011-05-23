@@ -30,14 +30,15 @@
   (let ((msg-fields (parse-privmsg line)))
     (if (string= (assoc-ref msg-fields 'message) (string-append nick ": quit"))
           (display (string-append "QUIT" line-end) out))
-    (display (string-append
-              "Message received from "
-              (assoc-ref msg-fields 'nick)
-              " sent to "
-              (assoc-ref msg-fields 'target)
-              ": "
-              (assoc-ref msg-fields 'message))
-             out)))
+    (begin
+      (display (string-append
+                "Message received from "
+                (assoc-ref msg-fields 'nick)
+                " sent to "
+                (assoc-ref msg-fields 'target)
+                ": "
+                (assoc-ref msg-fields 'message)))
+      (newline))))
 
 (define (parse-privmsg line)
   "Parse a PRIGMSG (LINE)."
