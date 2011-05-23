@@ -11,6 +11,7 @@
 (define name "Aidan Gauland")
 (define server "irc.example.com")
 (define port 6667)
+(define channels '("#aidalbot"))
 
 (define (process-line line)
   "Process a line from the IRC server."
@@ -66,9 +67,10 @@
 
   (display "Joining channels...") (newline)
   ;; Join channels, then enter the message-handling loop.
-  (display (string-append "JOIN #aidalbot" line-end) out)
+  (map (lambda (channel)
+         (display (string-append "JOIN " channel line-end) out))
+       channels)
 
   (do ((line (read-line-irc) (read-line-irc)))
       ((eof-object? line))
-    (process-line line)
-    (display (format #t "~s" line))))
+    (process-line line)))
