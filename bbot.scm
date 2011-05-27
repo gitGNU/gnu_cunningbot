@@ -47,7 +47,8 @@
                 (assoc-ref msg-fields 'target)
                 ": \""
                 (assoc-ref msg-fields 'message)
-                "\"")))))
+                "\""))
+      (newline))))
 
 (define conn (open-tcp-connection server port))
 (define in (connection-input-port conn))
