@@ -55,9 +55,13 @@
 
 (let ((read-line-irc (lambda ()
                        "Read a line from an IRC connection, dropping the trailing CRLF."
-                       (let ((line (string-drop-right (read-line in) 1)))
-                         (format #t "Read line ~s\n" line)
+                       (let ((line (read-line in)))
+                         (if (not (eof-object? line))
+                             (begin
+                               (set! line (string-drop-right line 1))
+                               (format #t "Read line ~s\n" line)))
                          line))))
+
   (display "Setting up connection...") (newline)
   ;; Setup the connection.
   (display (string-append "NICK " nick line-end) out)
