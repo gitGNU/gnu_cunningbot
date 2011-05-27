@@ -72,18 +72,21 @@
   (let lp ((line (read-line-irc))
            (last-msg-num #f))
     (if (eof-object? line)
-      (begin
-        (display "Error: Connection closed.")
-        (newline)
-        (quit)))
-    ;; Start counting responses when we reach the first one.
-    (if (string-match "^:.* 001.*" line)
-        (set! last-msg-num 0))
-    ;; Verify that we received all expected responses.
-    (if (and last-msg-num
-             (string-match (format #f "^:.* ~3'0d.*" (1+ last-msg-num)) line))
-        (if (< last-msg-num 4)
-            (lp (1+ last-msg-num)))))
+        (begin
+          (display "Error: Connection closed.")
+          (newline)
+          (quit)))
+    (if (not last-msg-num)
+        ;; Start counting responses when we reach the first one.
+        (if (string-match "^:.* 001.*" line)
+            (set! last-msg-num 0)
+            (lp (read-line-irc)
+                last-msg-num))
+        ;; Verify that we received all expected responses.
+        (if (string-match (format #f "^:.* ~3'0d.*" (1+ last-msg-num)) line)
+            (if (< last-msg-num 4)
+                (lp (read-line-irc)
+                    (1+ last-msg-num))))))
 
   (display "Joining channels...") (newline)
   ;; Join channels, then enter the message-handling loop.
