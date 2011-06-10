@@ -31,14 +31,28 @@
   (display (string-append "PONG" (substring line 4)) out)
   (set! ponged #t))
 
+(define (handle-ctcp msg target out)
+  "Respond to a CTCP PRIVMSG sent by TARGET."
+  (display (string-append "Responding to CTCP message: " (format #f "~s" msg) " sent by " target))
+  (newline)
+  (if (string= msg "VERSION")
+      (display (string-append "NOTICE " target " :bbot v0.1" line-end) out)))
+
 (define (handle-privmsg msg-fields out)
+  "Parse and respond to PRIVMSGs."
   (let* ((message (assoc-ref msg-fields 'message)))
-    (cond ((string= message (string-append nick ": quit"))
-           (display (string-append "QUIT" line-end) out))
-          ((and (char=? (string-ref message 0) #\x01)
-                (char=? (string-ref message (1- (string-length message))) #\x01))
-           (display "CTCP message.")
-           (newline)))
+    (cond
+     ;; Quit on a message of the form "[NICK]: quit".
+     ((string= message (string-append nick ": quit"))
+      (display (string-append "QUIT" line-end) out))
+     ;; Handle CTCP messages.
+     ((string-match "\x01(.*)\x01" message) =>
+      ;; (and (char=? (string-ref message 0) #\x01)
+      ;;           (char=? (string-ref message (1- (string-length message))) #\x01))
+      (lambda (match)
+        (display "CTCP message.")
+        (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick) out)
+        (newline))))
     (begin
       (display (string-append
                 "Message received from "
