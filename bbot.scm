@@ -38,13 +38,19 @@
   (if (string= msg "VERSION")
       (display (string-append "NOTICE " target " :bbot v0.1" line-end) out)))
 
+(define (handle-command line out)
+  "Handle a command and its arguments on LINE."
+  (let* ((line-tokens (string-split line #\space))
+         (cmd (car line-tokens))
+         (args (cdr line-tokens)))
+  (cond
+   ((string= cmd "quit")
+    (display (string-append "QUIT" line-end) out)))))
+
 (define (handle-privmsg msg-fields out)
   "Parse and respond to PRIVMSGs."
   (let* ((message (assoc-ref msg-fields 'message)))
     (cond
-     ;; Quit on a message of the form "[NICK]: quit".
-     ((string= message (string-append nick ": quit"))
-      (display (string-append "QUIT" line-end) out))
      ;; Handle CTCP messages.
      ((string-match "\x01(.*)\x01" message) =>
       ;; (and (char=? (string-ref message 0) #\x01)
@@ -52,7 +58,11 @@
       (lambda (match)
         (display "CTCP message.")
         (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick) out)
-        (newline))))
+        (newline)))
+     ;; Treat a message of the form "[NICK]: quit" as a command.
+     ((string-match (string-append "^" nick ": (.*)") message) =>
+      (lambda (match)
+        (handle-command (match:substring match 1) out))))
     (begin
       (display (string-append
                 "Message received from "
