@@ -36,14 +36,14 @@
   (if (string= msg "VERSION")
       (display (string-append "NOTICE " target " :bbot v0.1" line-end) out)))
 
+(define (cmd-quit)
+  (display "Quitting...")
+  (newline)
+  (display (string-append "QUIT" line-end) out))
+
 (define (handle-command line out)
   "Handle a command and its arguments on LINE."
-  (let* ((line-tokens (string-split line #\space))
-         (cmd (car line-tokens))
-         (args (cdr line-tokens)))
-  (cond
-   ((string= cmd "quit")
-    (display (string-append "QUIT" line-end) out)))))
+  (eval-string (string-append "(cmd-" line ")")))
 
 (define (handle-privmsg msg-fields out)
   "Parse and respond to PRIVMSGs."
