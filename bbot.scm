@@ -36,14 +36,28 @@
   (if (string= msg "VERSION")
       (display (string-append "NOTICE " target " :bbot v0.1" line-end) out)))
 
+(define (send-privmsg message target)
+  "Send a PRIVMSG MESSAGE to TARGET."
+  (display (string-append "PRIVMSG " target " :" message line-end) out))
+
 (define (cmd-quit)
   (display "Quitting...")
   (newline)
   (display (string-append "QUIT" line-end) out))
 
-(define (handle-command line)
+(define (handle-command line sender target)
   "Handle a command and its arguments on LINE."
-  (eval-string (string-append "(cmd-" line ")")))
+  (catch 'unbound-variable
+    (lambda ()
+      (eval-string (string-append "(cmd-" line ")")))
+    (lambda (key subr message args rest)
+        (send-privmsg (apply format (append (list #f message) args))
+                      ;; If the command was send to a channel, respond
+                      ;; to the channel, otherwise respond to the
+                      ;; sender.
+                      (if (char=? (string-ref target 0) #\#)
+                          target
+                          sender)))))
 
 (define (handle-privmsg msg-fields)
   "Parse and respond to PRIVMSGs."
@@ -58,7 +72,9 @@
      ;; Treat a message of the form "[NICK]: quit" as a command.
      ((string-match (string-append "^" nick ": (.*)") message) =>
       (lambda (match)
-        (handle-command (match:substring match 1)))))
+        (handle-command (match:substring match 1)
+                        (assoc-ref msg-fields 'nick)
+                        (assoc-ref msg-fields 'target)))))
     (begin
       (display (string-append
                 "Message received from "
