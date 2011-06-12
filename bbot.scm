@@ -25,11 +25,9 @@
                             (message . ,(match:substring match 3)))
                           out)))))
 
-(define ponged #f) ;; Whether we've responded to a PING.
 (define (pong line out)
   "Reply, on OUT, to a ping (which is LINE)."
-  (display (string-append "PONG" (substring line 4)) out)
-  (set! ponged #t))
+  (display (string-append "PONG" (substring line 4)) out))
 
 (define (handle-ctcp msg target out)
   "Respond to a CTCP PRIVMSG sent by TARGET."
