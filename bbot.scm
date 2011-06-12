@@ -33,7 +33,7 @@
   "Respond to a CTCP PRIVMSG sent by TARGET."
   (display (string-append "Responding to CTCP message: " (format #f "~s" msg) " sent by " target))
   (newline)
-  (if (string= msg "VERSION")
+  (if (string= "VERSION" msg)
       (display (string-append "NOTICE " target " :bbot v0.1" line-end) out)))
 
 (define (send-privmsg message target)
@@ -55,7 +55,7 @@
                       ;; If the command was send to a channel, respond
                       ;; to the channel, otherwise respond to the
                       ;; sender.
-                      (if (char=? (string-ref target 0) #\#)
+                      (if (char=? #\# (string-ref target 0))
                           target
                           sender)))))
 
