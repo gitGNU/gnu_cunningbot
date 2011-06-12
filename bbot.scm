@@ -52,12 +52,13 @@
       (eval-string (string-append "(cmd-" line ")")))
     (lambda (key subr message args rest)
         (send-privmsg (apply format (append (list #f message) args))
-                      ;; If the command was send to a channel, respond
-                      ;; to the channel, otherwise respond to the
-                      ;; sender.
-                      (if (char=? #\# (string-ref target 0))
-                          target
-                          sender)))))
+                      ;; If the command was sent directly to me, then
+                      ;; reply directly to the sender, otherwise,
+                      ;; assume it was sent to a channel and reply to
+                      ;; the channel.
+                      (if (string=? nick target)
+                          sender
+                          target)))))
 
 (define (handle-privmsg msg-fields)
   "Parse and respond to PRIVMSGs."
