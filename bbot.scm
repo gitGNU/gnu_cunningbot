@@ -53,8 +53,6 @@
     (cond
      ;; Handle CTCP messages.
      ((string-match "\x01(.*)\x01" message) =>
-      ;; (and (char=? (string-ref message 0) #\x01)
-      ;;           (char=? (string-ref message (1- (string-length message))) #\x01))
       (lambda (match)
         (display "CTCP message.")
         (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick) out)
