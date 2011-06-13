@@ -40,17 +40,25 @@
   "Send a PRIVMSG MESSAGE to TARGET."
   (display (string-append "PRIVMSG " target " :" message line-end) out))
 
-(define (cmd-quit)
+(define (cmd-quit target args)
   (display "Quitting...")
   (newline)
   "QUIT")
 
 (define (handle-command line sender target)
   "Handle a command and its arguments on LINE."
+(let* ((line-match (string-match "(\\S*)\\s*(.*)" line))
+       (cmd-procname
+        (symbol-append
+         'cmd-
+         (string->symbol (match:substring line-match 1))))
+       (args (match:substring line-match 2)))
   (catch 'unbound-variable
     (lambda ()
       (display
-       (string-append (eval-string (string-append "(cmd-" line ")")) line-end)
+       (string-append
+        (eval (list cmd-procname target args) (current-module))
+        line-end)
        out))
     (lambda (key subr message args rest)
         (send-privmsg (apply format (append (list #f message) args))
@@ -60,7 +68,7 @@
                       ;; the channel.
                       (if (string=? nick target)
                           sender
-                          target)))))
+                          target))))))
 
 (define (handle-privmsg msg-fields)
   "Parse and respond to PRIVMSGs."
