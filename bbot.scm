@@ -43,13 +43,15 @@
 (define (cmd-quit)
   (display "Quitting...")
   (newline)
-  (display (string-append "QUIT" line-end) out))
+  "QUIT")
 
 (define (handle-command line sender target)
   "Handle a command and its arguments on LINE."
   (catch 'unbound-variable
     (lambda ()
-      (eval-string (string-append "(cmd-" line ")")))
+      (display
+       (string-append (eval-string (string-append "(cmd-" line ")")) line-end)
+       out))
     (lambda (key subr message args rest)
         (send-privmsg (apply format (append (list #f message) args))
                       ;; If the command was sent directly to me, then
