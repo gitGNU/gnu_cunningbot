@@ -60,22 +60,23 @@
   (newline)
   "QUIT")
 
+;; Command procedure names are the command name prepended with cmd-
 (define (handle-command line sender target)
   "Handle a command and its arguments on LINE."
-(let* ((line-match (string-match "(\\S*)\\s*(.*)" line))
-       (cmd-procname
-        (symbol-append
-         'cmd-
-         (string->symbol (match:substring line-match 1))))
-       (args (match:substring line-match 2)))
-  (catch 'unbound-variable
-    (lambda ()
-      (display
-       (string-append
-        (eval (list cmd-procname target args) (current-module))
-        line-end)
-       out))
-    (lambda (key subr message args rest)
+  (let* ((line-match (string-match "(\\S*)\\s*(.*)" line))
+         (cmd-procname
+          (symbol-append
+           'cmd-
+           (string->symbol (match:substring line-match 1))))
+         (args (match:substring line-match 2)))
+    (catch 'unbound-variable
+      (lambda ()
+        (display
+         (string-append
+          (eval (list cmd-procname target args) (current-module))
+          line-end)
+         out))
+      (lambda (key subr message args rest)
         (send-privmsg (apply format (append (list #f message) args))
                       ;; If the command was sent directly to me, then
                       ;; reply directly to the sender, otherwise,
