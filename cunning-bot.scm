@@ -26,6 +26,12 @@
 (define version " :Cunning Bot v0.1")
 (define debugging #f) ;; Whether to print debugging messages
                       ;; (e.g. full server output).
+(define nick "Cunning_Bot")
+(define user "Cunning_Bot")
+(define name "Cunning Bot")
+(define server "irc.example.net")
+(define port 6667)
+(define channels '())
 
 (load "init.scm")
 

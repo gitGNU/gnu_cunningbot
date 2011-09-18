@@ -1,6 +1,0 @@
-(define nick "Cunning_Bot")
-(define user "Cunning_Bot")
-(define name "Cunning Bot")
-(define server "irc.example.net")
-(define port 6667)
-(define channels '("#cbot"))
