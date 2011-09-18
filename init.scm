@@ -1,0 +1,6 @@
+(define nick "aidalbot")
+(define user "aidalgol")
+(define name "Aidan Gauland")
+(define server "irc.example.com")
+(define port 6667)
+(define channels '("#aidalbot"))

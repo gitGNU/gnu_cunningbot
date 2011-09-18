@@ -23,12 +23,8 @@
              (spells network))
 
 (define line-end "\r\n")
-(define nick "aidalbot")
-(define user "aidalgol")
-(define name "Aidan Gauland")
-(define server "irc.example.com")
-(define port 6667)
-(define channels '("#aidalbot"))
+
+(load "init.scm")
 
 (define (process-line line)
   "Process a line from the IRC server."
