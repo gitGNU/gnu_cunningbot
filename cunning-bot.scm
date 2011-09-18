@@ -23,6 +23,7 @@
              (spells network))
 
 (define line-end "\r\n")
+(define version " :Cunning Bot v0.1")
 
 (load "init.scm")
 
@@ -45,7 +46,7 @@
   (display (string-append "Responding to CTCP message: " (format #f "~s" msg) " sent by " target))
   (newline)
   (if (string= "VERSION" msg)
-      (display (string-append "NOTICE " target " :bbot v0.1" line-end) out)))
+      (display (string-append "NOTICE " target version line-end) out)))
 
 (define (send-privmsg message target)
   "Send a PRIVMSG MESSAGE to TARGET."
