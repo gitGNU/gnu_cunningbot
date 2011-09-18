@@ -128,7 +128,7 @@
   (display (string-append "NICK " nick line-end) out)
   (display (string-append "USER " user " 0 * :" name line-end) out)
 
-  ;; We should now have received a responses 001-004 (right after the
+  ;; We should now have received responses 001-004 (right after the
   ;; NOTICEs).  If not, then quit.
   (let lp ((line (read-line-irc))
            (last-msg-num #f))
