@@ -24,6 +24,8 @@
 
 (define line-end "\r\n")
 (define version " :Cunning Bot v0.1")
+(define debugging #f) ;; Whether to print debugging messages
+                      ;; (e.g. full server output).
 
 (load "init.scm")
 
@@ -100,14 +102,15 @@
                         (assoc-ref msg-fields 'nick)
                         (assoc-ref msg-fields 'target)))))
     (begin
-      (display (string-append
-                "Message received from "
-                (assoc-ref msg-fields 'nick)
-                " sent to "
-                (assoc-ref msg-fields 'target)
-                ": \""
-                (assoc-ref msg-fields 'message)
-                "\""))
+      (if debugging
+          (display (string-append
+                    "Message received from "
+                    (assoc-ref msg-fields 'nick)
+                    " sent to "
+                    (assoc-ref msg-fields 'target)
+                    ": \""
+                    (assoc-ref msg-fields 'message)
+                    "\"")))
       (newline))))
 
 (define conn (open-tcp-connection server port))
@@ -120,10 +123,11 @@
                          (if (not (eof-object? line))
                              (begin
                                (set! line (string-drop-right line 1))
-                               (format #t "Read line ~s\n" line)))
+                               (if debugging
+                                   (format #t "Read line ~s\n" line))))
                          line))))
 
-  (display "Setting up connection...") (newline)
+  (display "Setting up connection...")
   ;; Setup the connection.
   (display (string-append "NICK " nick line-end) out)
   (display (string-append "USER " user " 0 * :" name line-end) out)
@@ -148,12 +152,14 @@
             (if (< last-msg-num 4)
                 (lp (read-line-irc)
                     (1+ last-msg-num))))))
+  (display "done.") (newline) ;; Let the user know we're done connecting.
 
-  (display "Joining channels...") (newline)
+  (display "Joining channels...")
   ;; Join channels, then enter the message-handling loop.
   (map (lambda (channel)
          (display (string-append "JOIN " channel line-end) out))
        channels)
+  (display "done.") (newline) ;; Let the user know we're done joining.
 
   (do ((line (read-line-irc) (read-line-irc)))
       ((eof-object? line))
