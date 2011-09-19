@@ -62,6 +62,9 @@
   "Send a PRIVMSG MESSAGE to TARGET."
   (display (string-append "PRIVMSG " target " :" message line-end) out))
 
+(define (join-channel channel)
+  (display (string-append "JOIN " channel line-end) out))
+
 (define (cmd-quit target args)
   (display "Quitting...")
   (newline)
@@ -164,8 +167,7 @@
 
   (display "Joining channels...")
   ;; Join channels, then enter the message-handling loop.
-  (map (lambda (channel)
-         (display (string-append "JOIN " channel line-end) out))
+  (map join-channel
        channels)
   (display "done.") (newline) ;; Let the user know we're done joining.
 
