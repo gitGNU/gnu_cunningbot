@@ -51,8 +51,10 @@
 
 (define (handle-ctcp msg target)
   "Respond to a CTCP PRIVMSG sent by TARGET."
-  (display (string-append "Responding to CTCP message: " (format #f "~s" msg) " sent by " target))
-  (newline)
+  (if debugging
+      (begin
+        (display (string-append "Responding to CTCP message: " (format #f "~s" msg) " sent by " target))
+        (newline)))
   (if (string= "VERSION" msg)
       (display (string-append "NOTICE " target version line-end) out)))
 
@@ -74,13 +76,13 @@
            'cmd-
            (string->symbol (match:substring line-match 1))))
          (args (match:substring line-match 2)))
+    ;; Try to execute the command procudure.  If there is no such
+    ;; procedure, then reply with an error message saying so.
     (catch 'unbound-variable
       (lambda ()
-        (display
-         (string-append
-          (eval (list cmd-procname target args) (current-module))
-          line-end)
-         out))
+        (let ((result (eval (list cmd-procname target args) (current-module))))
+          (if (string? result)
+              (display (string-append result line-end) out))))
       (lambda (key subr message args rest)
         (send-privmsg (apply format (append (list #f message) args))
                       ;; If the command was sent directly to me, then
@@ -98,9 +100,9 @@
      ;; Handle CTCP messages.
      ((string-match "\x01(.*)\x01" message) =>
       (lambda (match)
-        (display "CTCP message.")
-        (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick))
-        (newline)))
+        (if debugging 
+            (begin (display "CTCP message.")) (newline))
+        (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick))))
      ;; Treat a message of the form "[NICK]: quit" as a command.
      ((string-match (string-append "^" nick ": (.*)") message) =>
       (lambda (match)
