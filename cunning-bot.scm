@@ -59,7 +59,12 @@
 
 (define (send-privmsg message target)
   "Send a PRIVMSG MESSAGE to TARGET."
-  (display (string-append "PRIVMSG " target " :" message line-end) out))
+  (let ((line (string-append "PRIVMSG " target " :" message)))
+    (if debugging
+        (begin
+          (display (string-append "Sending line: \"" line "\""))
+          (newline)))
+    (display (string-append line line-end) out)))
 
 (define (join-channel channel)
   (display (string-append "JOIN " channel line-end) out))
@@ -98,19 +103,6 @@
 (define (handle-privmsg msg-fields)
   "Parse and respond to PRIVMSGs."
   (let* ((message (assoc-ref msg-fields 'message)))
-    (cond
-     ;; Handle CTCP messages.
-     ((string-match "\x01(.*)\x01" message) =>
-      (lambda (match)
-        (if debugging 
-            (begin (display "CTCP message.")) (newline))
-        (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick))))
-     ;; Treat a message of the form "NICK: CMD" as a command.
-     ((string-match (string-append "^" nick ": (.*)") message) =>
-      (lambda (match)
-        (handle-command (match:substring match 1)
-                        (assoc-ref msg-fields 'nick)
-                        (assoc-ref msg-fields 'target)))))
     (if debugging
         (begin
           (display (string-append
@@ -121,7 +113,20 @@
                     ": \""
                     (assoc-ref msg-fields 'message)
                     "\""))
-          (newline)))))
+          (newline)))
+    (cond
+     ;; Handle CTCP messages.
+     ((string-match "\x01(.*)\x01" message) =>
+      (lambda (match)
+        (if debugging 
+            (begin (display "CTCP message.") (newline)))
+        (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick))))
+     ;; Treat a message of the form "NICK: CMD" as a command.
+     ((string-match (string-append "^" nick ": (.*)") message) =>
+      (lambda (match)
+        (handle-command (match:substring match 1)
+                        (assoc-ref msg-fields 'nick)
+                        (assoc-ref msg-fields 'target)))))))
 
 (define conn (open-tcp-connection server port))
 (define in (connection-input-port conn))
