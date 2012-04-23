@@ -50,20 +50,18 @@
 
 (define (handle-ctcp msg target)
   "Respond to a CTCP PRIVMSG sent by TARGET."
-  (if debugging
-      (begin
-        (display (string-append "Responding to CTCP message: " (format #f "~s" msg) " sent by " target))
-        (newline)))
-  (if (string= "VERSION" msg)
+  (when debugging
+    (display (string-append "Responding to CTCP message: " (format #f "~s" msg) " sent by " target))
+    (newline))
+  (if (string=? "VERSION" msg)
       (display (string-append "NOTICE " target version line-end) out)))
 
 (define (send-privmsg message target)
   "Send a PRIVMSG MESSAGE to TARGET."
   (let ((line (string-append "PRIVMSG " target " :" message)))
-    (if debugging
-        (begin
-          (display (string-append "Sending line: \"" line "\""))
-          (newline)))
+    (when debugging
+      (display (string-append "Sending line: \"" line "\""))
+      (newline))
     (display (string-append line line-end) out)))
 
 (define (join-channel channel)
@@ -137,12 +135,12 @@
     (if (not (eof-object? line))
         (begin
           (set! line (string-drop-right line 1))
-          (if debugging
-              (format #t "Read line ~s\n" line))))
+          (when debugging
+            (format #t "Read line ~s" line) (newline))))
     line))
 
-(display "Setting up connection...")
 ;; Setup the connection.
+(display "Setting up connection...") (if debugging (newline))
 (display (string-append "NICK " nick line-end) out)
 (display (string-append "USER " user " 0 * :" name line-end) out)
 
