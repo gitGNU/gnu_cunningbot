@@ -102,7 +102,7 @@
   "Parse and respond to PRIVMSGs."
   (let* ((message (assoc-ref msg-fields 'message))
          (match #f))
-    (if debugging
+    (when debugging
         (display (string-append
                   "Message received from '"
                   (assoc-ref msg-fields 'nick)
