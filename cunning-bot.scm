@@ -100,31 +100,40 @@
 
 (define (handle-privmsg msg-fields)
   "Parse and respond to PRIVMSGs."
-  (let* ((message (assoc-ref msg-fields 'message)))
+  (let* ((message (assoc-ref msg-fields 'message))
+         (match #f))
     (if debugging
+        (display (string-append
+                  "Message received from '"
+                  (assoc-ref msg-fields 'nick)
+                  "' sent to '"
+                  (assoc-ref msg-fields 'target)
+                  "': \""
+                  (assoc-ref msg-fields 'message)
+                  "\""))
+        (newline))
+    ;; Handle CTCP messages.
+    (set! match (string-match "\x01(.*)\x01" message))
+    (if match
         (begin
-          (display (string-append
-                    "Message received from "
-                    (assoc-ref msg-fields 'nick)
-                    " sent to "
-                    (assoc-ref msg-fields 'target)
-                    ": \""
-                    (assoc-ref msg-fields 'message)
-                    "\""))
-          (newline)))
-    (cond
-     ;; Handle CTCP messages.
-     ((string-match "\x01(.*)\x01" message) =>
-      (lambda (match)
-        (if debugging 
-            (begin (display "CTCP message.") (newline)))
-        (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick))))
-     ;; Treat a message of the form "NICK: CMD" as a command.
-     ((string-match (string-append "^" nick ": (.*)") message) =>
-      (lambda (match)
-        (handle-command (match:substring match 1)
-                        (assoc-ref msg-fields 'nick)
-                        (assoc-ref msg-fields 'target)))))))
+          (when debugging
+            (display "CTCP message.") (newline))
+          (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick)))
+        (begin
+          (cond
+           ;; If the message was sent to a channel, then respond only
+           ;; to messages of the form "NICK: CMD" as a command.
+           ((string-match "^#" (assoc-ref msg-fields 'target))
+            (set! match (string-match (string-append "^" nick ": (.*)") message))
+            (handle-command (match:substring match 1)
+                            (assoc-ref msg-fields 'nick)
+                            (assoc-ref msg-fields 'target)))
+           ;; If the message was sent to the us directly, then
+           ;; don'treat the whole line as a command.
+           ((string=? nick (assoc-ref msg-fields 'target))
+            (handle-command message
+                            (assoc-ref msg-fields 'nick)
+                            (assoc-ref msg-fields 'nick))))))))
 
 (define conn (open-tcp-connection server port))
 (define in (connection-input-port conn))
