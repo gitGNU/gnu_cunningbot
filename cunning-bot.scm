@@ -32,7 +32,7 @@
 (define port 6667)
 (define channels '())
 
-(load "init.scm")
+(primitive-load "init.scm")
 
 (define (process-line line)
   "Process a line from the IRC server."
