@@ -64,6 +64,13 @@
       (newline))
     (display (string-append line line-end) out)))
 
+(define (send-action message target)
+  "Send MESSAGE to target as a CTCP ACTION.
+
+Essentially a convenience wrapper around `send-privmsg'."
+  (send-privmsg (string-append "\x01ACTION " message "\x01")
+                target))
+
 (define (join-channel channel)
   (display (string-append "JOIN " channel line-end) out))
 
