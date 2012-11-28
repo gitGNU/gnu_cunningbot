@@ -5,4 +5,7 @@
 
 (define (cmd-say-hello sender target args)
   (send-privmsg
-   "Hello!" target))
+   (if (channel-name? target)
+       (string-append sender ": Hello!")
+       "Hello!")
+   target))

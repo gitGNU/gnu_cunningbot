@@ -136,7 +136,7 @@ ignored."
           (cond
            ;; If the message was sent to a channel, then respond only
            ;; to messages of the form "NICK: CMD" as a command.
-           ((string-match "^#" (assoc-ref msg-fields 'target))
+           ((channel-name? (assoc-ref msg-fields 'target))
             (set! match (string-match (string-append "^" nick ": (.*)") message))
             (if match
                 (handle-command (match:substring match 1)
