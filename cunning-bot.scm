@@ -45,7 +45,8 @@
                             (message . ,(match:substring match 3))))))))
 
 (define (pong line)
-  "Reply, on OUT, to a ping (which is LINE)."
+  "Reply to a ping represented by LINE.
+LINE should be an IRC PING command from the server."
   (display (string-append "PONG" (substring line 4)) out))
 
 (define (handle-ctcp msg target)
@@ -72,9 +73,14 @@ Essentially a convenience wrapper around `send-privmsg'."
                 target))
 
 (define (join-channel channel)
+  "Send a JOIN request for CHANNEL.
+
+This does not (yet) handle JOIN responses, so errors are silently
+ignored."
   (display (string-append "JOIN " channel line-end) out))
 
 (define (quit-irc)
+  "Send a QUIT message to the server (to cleanly disconnect)."
   (display "Quitting...")
   (newline)
   (display (string-append "QUIT" line-end) out))
