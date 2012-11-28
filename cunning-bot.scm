@@ -34,6 +34,10 @@
 
 (primitive-load "init.scm")
 
+;; `handle-privmsg-hook' is run with the arguments SENDER TARGET and
+;; MESSAGE.
+(define handle-privmsg-hook (make-hook 3))
+
 (define (channel-name? string)
   "Returns whether STRING is a channel name."
 
@@ -130,6 +134,10 @@ ignored."
                   (assoc-ref msg-fields 'message)
                   "\""))
         (newline))
+    (run-hook handle-privmsg-hook
+              (assoc-ref msg-fields 'nick)
+              (assoc-ref msg-fields 'target)
+              (assoc-ref msg-fields 'message))
     ;; Check whether it's a CTCP message.
     (set! match (string-match "\x01(.*)\x01" message))
     (if match
