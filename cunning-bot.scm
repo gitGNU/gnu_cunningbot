@@ -98,7 +98,7 @@ ignored."
     ;; procedure, then reply with an error message saying so.
     (catch 'unbound-variable
       (lambda ()
-        (let ((result (eval (list cmd-procname target args) (current-module))))
+        (let ((result (eval (list cmd-procname sender target args) (current-module))))
           (if (string? result)
               (display (string-append result line-end) out))))
       (lambda (key subr message args rest)
