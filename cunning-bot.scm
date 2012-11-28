@@ -34,6 +34,11 @@
 
 (primitive-load "init.scm")
 
+(define (channel-name? string)
+  "Returns whether STRING is a channel name."
+
+  (string-match "^#" string))
+
 (define (process-line line)
   "Process a line from the IRC server."
   (cond ((string-match "^PING" line)
@@ -149,9 +154,13 @@ ignored."
                             (assoc-ref msg-fields 'nick)
                             (assoc-ref msg-fields 'nick))))))))
 
+;; Establish TCP connection.
+(format #t "Establishing TCP connection to ~a on port ~d..."
+        server port)
 (define conn (open-tcp-connection server port))
 (define in (connection-input-port conn))
 (define out (connection-output-port conn))
+(display "done.") (newline)
 (define (read-line-irc)
   "Read a line from an IRC connection, dropping the trailing CRLF."
   (let ((line (read-line in)))
@@ -162,8 +171,8 @@ ignored."
             (format #t "Read line ~s" line) (newline))))
     line))
 
-;; Setup the connection.
-(display "Setting up connection...") (if debugging (newline))
+;; Setup the IRC connection.
+(display "Setting up IRC connection...") (if debugging (newline))
 (display (string-append "NICK " nick line-end) out)
 (display (string-append "USER " user " 0 * :" name line-end) out)
 
@@ -188,6 +197,7 @@ ignored."
               (lp (read-line-irc)
                   (1+ last-msg-num))))))
 (display "done.") (newline)
+;; We are now connected to the IRC server.
 
 (display "Joining channels...")
 ;; Join channels, then enter the message-handling loop.
