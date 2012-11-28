@@ -141,8 +141,8 @@ ignored."
             (handle-command (match:substring match 1)
                             (assoc-ref msg-fields 'nick)
                             (assoc-ref msg-fields 'target)))
-           ;; If the message was sent to the us directly, then
-           ;; don'treat the whole line as a command.
+           ;; If the message was sent to the us directly, then treat
+           ;; the whole line as a command.
            ((string=? nick (assoc-ref msg-fields 'target))
             (handle-command message
                             (assoc-ref msg-fields 'nick)
