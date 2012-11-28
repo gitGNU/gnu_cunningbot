@@ -125,22 +125,23 @@ ignored."
                   (assoc-ref msg-fields 'message)
                   "\""))
         (newline))
-    ;; Handle CTCP messages.
+    ;; Check whether it's a CTCP message.
     (set! match (string-match "\x01(.*)\x01" message))
     (if match
-        (begin
+        (begin ; It is a CTCP message.
           (when debugging
             (display "CTCP message.") (newline))
           (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick)))
-        (begin
+        (begin ; It is a regular PRIVMSG.
           (cond
            ;; If the message was sent to a channel, then respond only
            ;; to messages of the form "NICK: CMD" as a command.
            ((string-match "^#" (assoc-ref msg-fields 'target))
             (set! match (string-match (string-append "^" nick ": (.*)") message))
-            (handle-command (match:substring match 1)
-                            (assoc-ref msg-fields 'nick)
-                            (assoc-ref msg-fields 'target)))
+            (if match
+                (handle-command (match:substring match 1)
+                                (assoc-ref msg-fields 'nick)
+                                (assoc-ref msg-fields 'target))))
            ;; If the message was sent to the us directly, then treat
            ;; the whole line as a command.
            ((string=? nick (assoc-ref msg-fields 'target))
