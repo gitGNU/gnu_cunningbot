@@ -83,7 +83,7 @@ LINE should be an IRC PING command from the server."
   "Send MESSAGE to target as a CTCP ACTION.
 
 Essentially a convenience wrapper around `send-privmsg'."
-  (send-privmsg (string-append "\x01ACTION " message "\x01")
+  (send-privmsg (format #f "\x01ACTION ~a\x01" message)
                 target))
 
 (define (join-channel channel)
@@ -147,7 +147,7 @@ ignored."
            ;; If the message was sent to a channel, then respond only
            ;; to messages of the form "NICK: CMD" as a command.
            ((channel-name? (assoc-ref msg-fields 'target))
-            (set! match (string-match (string-append "^" nick ": (.*)") message))
+            (set! match (string-match (format #f "^~a: (.*)" nick) message))
             (if match
                 (handle-command (match:substring match 1)
                                 (assoc-ref msg-fields 'nick)
