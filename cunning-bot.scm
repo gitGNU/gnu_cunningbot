@@ -23,7 +23,7 @@
              (spells network))
 
 (define line-end "\r\n")
-(define version " :Cunning Bot v0.1")
+(define version "Cunning Bot v0.1")
 (define debugging #f) ;; Whether to print debugging messages.
 (define nick "Cunning_Bot")
 (define user "Cunning_Bot")
@@ -62,19 +62,22 @@
 (define (pong line)
   "Reply to a ping represented by LINE.
 LINE should be an IRC PING command from the server."
-  (display (string-append "PONG" (substring line 4)) out))
+  (irc-send (format #f "PONG~a" (substring line 4))))
 
 (define (handle-ctcp msg target)
   "Respond to a CTCP PRIVMSG sent by TARGET."
   (debug "Responding to CTCP message: ~s sent by ~s~%" target)
   (if (string=? "VERSION" msg)
-      (display (string-append "NOTICE " target version line-end) out)))
+      (irc-send (format #f "NOTICE ~a :~a" target version))))
+
+(define (irc-send string)
+  "Send STRING to the IRC server."
+  (debug "Sending line: ~s~%" string)
+  (format out "~a~a" string line-end))
 
 (define (send-privmsg message target)
   "Send a PRIVMSG MESSAGE to TARGET."
-  (let ((line (string-append "PRIVMSG " target " :" message)))
-    (debug "Sending line: ~s~%" line)
-    (display (string-append line line-end) out)))
+  (irc-send (format #f "PRIVMSG ~a :~a" target message)))
 
 (define (send-action message target)
   "Send MESSAGE to target as a CTCP ACTION.
@@ -88,12 +91,12 @@ Essentially a convenience wrapper around `send-privmsg'."
 
 This does not (yet) handle JOIN responses, so errors are silently
 ignored."
-  (display (string-append "JOIN " channel line-end) out))
+  (irc-send (format #f "JOIN ~a" channel)))
 
 (define (quit-irc)
   "Send a QUIT message to the server (to cleanly disconnect)."
   (format #t "Quitting...~%")
-  (display (string-append "QUIT" line-end) out))
+  (irc-send "QUIT"))
 
 ;; Command procedure names are the command name prepended with cmd-
 (define (handle-command line sender target)
@@ -110,7 +113,7 @@ ignored."
       (lambda ()
         (let ((result (eval (list cmd-procname sender target args) (current-module))))
           (if (string? result)
-              (display (string-append result line-end) out))))
+              (irc-send result))))
       (lambda (key subr message args rest)
         (send-privmsg (apply format (append (list #f message) args))
                       ;; If the command was sent directly to me, then
@@ -174,8 +177,8 @@ ignored."
 
 ;; Setup the IRC connection.
 (display "Setting up IRC connection...") (debug "~%")
-(display (string-append "NICK " nick line-end) out)
-(display (string-append "USER " user " 0 * :" name line-end) out)
+(irc-send (format #f "NICK ~a" nick))
+(irc-send (format #f "USER ~a 0 * :~a" user name))
 
 ;; We should now have received responses 001-004 (right after the
 ;; NOTICEs).  If not, then quit.
