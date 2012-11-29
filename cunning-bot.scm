@@ -46,18 +46,20 @@
 
 (define (channel-name? string)
   "Returns whether STRING is a channel name."
-
   (string-match "^#" string))
 
 (define (process-line line)
   "Process a line from the IRC server."
-  (cond ((string-match "^PING" line)
-         (pong line))
-        ((string-match "^:(.*)!.*@.* PRIVMSG (.*) :(.*)" line) =>
-         (lambda (match) (handle-privmsg
-                          `((nick . ,(match:substring match 1))
-                            (target . ,(match:substring match 2))
-                            (message . ,(match:substring match 3))))))))
+  (cond
+   ;; PONG PINGs.
+   ((string-match "^PING" line)
+    (pong line))
+   ;; PRIVMSGs
+   ((string-match "^:(.*)!.*@.* PRIVMSG (.*) :(.*)" line) =>
+    (lambda (match) (handle-privmsg
+                     `((nick . ,(match:substring match 1))
+                       (target . ,(match:substring match 2))
+                       (message . ,(match:substring match 3))))))))
 
 (define (pong line)
   "Reply to a ping represented by LINE.
@@ -202,11 +204,12 @@ ignored."
 (display "done.") (newline)
 ;; We are now connected to the IRC server.
 
+;; Join channels.
 (display "Joining channels...")
-;; Join channels, then enter the message-handling loop.
 (for-each join-channel channels)
 (format #t "done.~%")
 
+;; Enter the message-polling loop.
 (do ((line (read-line-irc) (read-line-irc)))
     ((eof-object? line))
   (process-line line))
