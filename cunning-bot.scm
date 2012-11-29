@@ -201,8 +201,7 @@ ignored."
 
 (display "Joining channels...")
 ;; Join channels, then enter the message-handling loop.
-(map join-channel
-     channels)
+(for-each join-channel channels)
 (format #t "done.~%")
 
 (do ((line (read-line-irc) (read-line-irc)))
