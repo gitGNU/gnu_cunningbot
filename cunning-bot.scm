@@ -32,6 +32,12 @@
 (define port 6667)
 (define channels '())
 
+(define-syntax debug
+  (syntax-rules ()
+    ((debug s exp ...)
+     (when debugging
+       (format #t s exp ...)))))
+
 (primitive-load "init.scm")
 
 ;; `handle-privmsg-hook' is run with the arguments SENDER TARGET and
@@ -60,18 +66,14 @@ LINE should be an IRC PING command from the server."
 
 (define (handle-ctcp msg target)
   "Respond to a CTCP PRIVMSG sent by TARGET."
-  (when debugging
-    (display (string-append "Responding to CTCP message: " (format #f "~s" msg) " sent by " target))
-    (newline))
+  (debug "Responding to CTCP message: ~s sent by ~s~%" target)
   (if (string=? "VERSION" msg)
       (display (string-append "NOTICE " target version line-end) out)))
 
 (define (send-privmsg message target)
   "Send a PRIVMSG MESSAGE to TARGET."
   (let ((line (string-append "PRIVMSG " target " :" message)))
-    (when debugging
-      (display (string-append "Sending line: \"" line "\""))
-      (newline))
+    (debug "Sending line: ~s~%" line)
     (display (string-append line line-end) out)))
 
 (define (send-action message target)
@@ -90,8 +92,7 @@ ignored."
 
 (define (quit-irc)
   "Send a QUIT message to the server (to cleanly disconnect)."
-  (display "Quitting...")
-  (newline)
+  (format #t "Quitting...~%")
   (display (string-append "QUIT" line-end) out))
 
 ;; Command procedure names are the command name prepended with cmd-
@@ -124,16 +125,10 @@ ignored."
   "Parse and respond to PRIVMSGs."
   (let* ((message (assoc-ref msg-fields 'message))
          (match #f))
-    (when debugging
-        (display (string-append
-                  "Message received from '"
-                  (assoc-ref msg-fields 'nick)
-                  "' sent to '"
-                  (assoc-ref msg-fields 'target)
-                  "': \""
-                  (assoc-ref msg-fields 'message)
-                  "\""))
-        (newline))
+    (debug "Message received from ~s sent to ~s: ~s~%"
+           (assoc-ref msg-fields 'nick)
+           (assoc-ref msg-fields 'target)
+           (assoc-ref msg-fields 'message))
     (run-hook handle-privmsg-hook
               (assoc-ref msg-fields 'nick)
               (assoc-ref msg-fields 'target)
@@ -142,8 +137,7 @@ ignored."
     (set! match (string-match "\x01(.*)\x01" message))
     (if match
         (begin ; It is a CTCP message.
-          (when debugging
-            (display "CTCP message.") (newline))
+          (debug "CTCP message.~%")
           (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick)))
         (begin ; It is a regular PRIVMSG.
           (cond
@@ -168,19 +162,18 @@ ignored."
 (define conn (open-tcp-connection server port))
 (define in (connection-input-port conn))
 (define out (connection-output-port conn))
-(display "done.") (newline)
+(format #t "done.~%")
 (define (read-line-irc)
   "Read a line from an IRC connection, dropping the trailing CRLF."
   (let ((line (read-line in)))
     (if (not (eof-object? line))
         (begin
           (set! line (string-drop-right line 1))
-          (when debugging
-            (format #t "Read line ~s" line) (newline))))
+          (debug "Read line ~s~%" line)))
     line))
 
 ;; Setup the IRC connection.
-(display "Setting up IRC connection...") (if debugging (newline))
+(display "Setting up IRC connection...") (debug "~%")
 (display (string-append "NICK " nick line-end) out)
 (display (string-append "USER " user " 0 * :" name line-end) out)
 
@@ -190,8 +183,7 @@ ignored."
          (last-msg-num #f))
   (if (eof-object? line)
       (begin
-        (display "Error: Connection closed.")
-        (newline)
+        (format #t "Error: Connection closed.~%")
         (quit)))
   (if (not last-msg-num)
       ;; Start counting responses when we reach the first one.
@@ -211,7 +203,7 @@ ignored."
 ;; Join channels, then enter the message-handling loop.
 (map join-channel
      channels)
-(display "done.") (newline)
+(format #t "done.~%")
 
 (do ((line (read-line-irc) (read-line-irc)))
     ((eof-object? line))
