@@ -36,11 +36,9 @@
 (define in)
 (define out)
 
-(define-syntax debug
-  (syntax-rules ()
-    ((debug s exp ...)
-     (when debugging
-       (format #t s exp ...)))))
+(define-syntax-rule (debug s exp ...)
+  (when debugging
+    (format #t s exp ...)))
 
 ;; `handle-privmsg-hook' is run with the arguments SENDER TARGET and
 ;; MESSAGE.
