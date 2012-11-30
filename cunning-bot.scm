@@ -57,10 +57,9 @@
    ;; PRIVMSGs
    ((string-match "^:(.*)!.*@.* PRIVMSG (.*) :(.*)" line) =>
     (lambda (match)
-      (handle-privmsg
-       `((nick . ,(match:substring match 1))
-         (target . ,(match:substring match 2))
-         (message . ,(match:substring match 3))))))))
+      (handle-privmsg (match:substring match 1)
+                      (match:substring match 2)
+                      (match:substring match 3))))))
 
 (define (pong line)
   "Reply to a ping represented by LINE.
@@ -136,40 +135,34 @@ ignored."
                           sender
                           target))))))
 
-(define (handle-privmsg msg-fields)
+(define (handle-privmsg sender target message)
   "Parse and respond to PRIVMSGs."
-  (let* ((message (assoc-ref msg-fields 'message))
-         (match #f))
+  (let ((match (string-match "\x01(.*)\x01" message)))
     (debug "Message received from ~s sent to ~s: ~s~%"
-           (assoc-ref msg-fields 'nick)
-           (assoc-ref msg-fields 'target)
-           (assoc-ref msg-fields 'message))
+           sender target message)
     (run-hook handle-privmsg-hook
-              (assoc-ref msg-fields 'nick)
-              (assoc-ref msg-fields 'target)
-              (assoc-ref msg-fields 'message))
+              sender target message)
     ;; Check whether it's a CTCP message.
-    (set! match (string-match "\x01(.*)\x01" message))
     (if match
         (begin ; It is a CTCP message.
           (debug "CTCP message.~%")
-          (handle-ctcp (match:substring match 1) (assoc-ref msg-fields 'nick)))
+          (handle-ctcp (match:substring match 1) sender))
         (begin ; It is a regular PRIVMSG.
           (cond
            ;; If the message was sent to a channel, then respond only
            ;; to messages of the form "NICK: CMD" as a command.
-           ((channel-name? (assoc-ref msg-fields 'target))
+           ((channel-name? target)
             (set! match (string-match (format #f "^~a: (.*)" nick) message))
             (if match
                 (handle-command (match:substring match 1)
-                                (assoc-ref msg-fields 'nick)
-                                (assoc-ref msg-fields 'target))))
+                                sender
+                                target)))
            ;; If the message was sent to the us directly, then treat
            ;; the whole line as a command.
-           ((string=? nick (assoc-ref msg-fields 'target))
+           ((string=? nick target)
             (handle-command message
-                            (assoc-ref msg-fields 'nick)
-                            (assoc-ref msg-fields 'nick))))))))
+                            sender
+                            sender)))))))
 
 ;; Establish TCP connection.
 (format #t "Establishing TCP connection to ~a on port ~d..."
