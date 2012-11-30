@@ -56,10 +56,11 @@
     (pong line))
    ;; PRIVMSGs
    ((string-match "^:(.*)!.*@.* PRIVMSG (.*) :(.*)" line) =>
-    (lambda (match) (handle-privmsg
-                     `((nick . ,(match:substring match 1))
-                       (target . ,(match:substring match 2))
-                       (message . ,(match:substring match 3))))))))
+    (lambda (match)
+      (handle-privmsg
+       `((nick . ,(match:substring match 1))
+         (target . ,(match:substring match 2))
+         (message . ,(match:substring match 3))))))))
 
 (define (pong line)
   "Reply to a ping represented by LINE.
@@ -76,6 +77,15 @@ LINE should be an IRC PING command from the server."
   "Send STRING to the IRC server."
   (debug "Sending line: ~s~%" string)
   (format out "~a~a" string line-end))
+
+(define (read-line-irc)
+  "Read a line from an IRC connection, dropping the trailing CRLF."
+  (let ((line (read-line in)))
+    (if (not (eof-object? line))
+        (begin
+          (set! line (string-drop-right line 1))
+          (debug "Read line ~s~%" line)))
+    line))
 
 (define (send-privmsg message target)
   "Send a PRIVMSG MESSAGE to TARGET."
@@ -165,23 +175,14 @@ ignored."
 (format #t "Establishing TCP connection to ~a on port ~d..."
         server port)
 (define conn (open-tcp-connection server port))
+(format #t "done.~%")
 (define in (connection-input-port conn))
 (define out (connection-output-port conn))
-(format #t "done.~%")
-(define (read-line-irc)
-  "Read a line from an IRC connection, dropping the trailing CRLF."
-  (let ((line (read-line in)))
-    (if (not (eof-object? line))
-        (begin
-          (set! line (string-drop-right line 1))
-          (debug "Read line ~s~%" line)))
-    line))
 
 ;; Setup the IRC connection.
 (display "Setting up IRC connection...") (debug "~%")
 (irc-send (format #f "NICK ~a" nick))
 (irc-send (format #f "USER ~a 0 * :~a" user name))
-
 ;; We should now have received responses 001-004 (right after the
 ;; NOTICEs).  If not, then quit.
 (let lp ((line (read-line-irc))
