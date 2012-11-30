@@ -1,6 +1,3 @@
-#!/usr/bin/env guile
-!#
-
 ;; Cunning Bot, an IRC bot written in Guile Scheme.
 ;; Copyright (C) 2011  Aidan Gauland
 
@@ -17,10 +14,16 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(use-modules (ice-9 rdelim)
-             (ice-9 regex)
-             (ice-9 format)
-             (spells network))
+(define-module (cunning-bot)
+  #:use-module (ice-9 rdelim)
+  #:use-module (ice-9 regex)
+  #:use-module (ice-9 format)
+  #:use-module (spells network)
+  #:export (send-privmsg
+            send-action
+            join-channel
+            channel-name?
+            start-bot))
 
 (define line-end "\r\n")
 (define version "Cunning Bot v0.1")
@@ -28,17 +31,16 @@
 (define nick "Cunning_Bot")
 (define user "Cunning_Bot")
 (define name "Cunning Bot")
-(define server "irc.example.net")
-(define port 6667)
-(define channels '())
+
+(define conn)
+(define in)
+(define out)
 
 (define-syntax debug
   (syntax-rules ()
     ((debug s exp ...)
      (when debugging
        (format #t s exp ...)))))
-
-(primitive-load "init.scm")
 
 ;; `handle-privmsg-hook' is run with the arguments SENDER TARGET and
 ;; MESSAGE.
@@ -164,46 +166,47 @@ ignored."
                             sender
                             sender)))))))
 
-;; Establish TCP connection.
-(format #t "Establishing TCP connection to ~a on port ~d..."
-        server port)
-(define conn (open-tcp-connection server port))
-(format #t "done.~%")
-(define in (connection-input-port conn))
-(define out (connection-output-port conn))
+(define (start-bot server port channels)
+  ;; Establish TCP connection.
+  (format #t "Establishing TCP connection to ~a on port ~d..."
+          server port)
+  (set! conn (open-tcp-connection server port))
+  (format #t "done.~%")
+  (set! in (connection-input-port conn))
+  (set! out (connection-output-port conn))
 
-;; Setup the IRC connection.
-(display "Setting up IRC connection...") (debug "~%")
-(irc-send (format #f "NICK ~a" nick))
-(irc-send (format #f "USER ~a 0 * :~a" user name))
-;; We should now have received responses 001-004 (right after the
-;; NOTICEs).  If not, then quit.
-(let lp ((line (read-line-irc))
-         (last-msg-num #f))
-  (if (eof-object? line)
-      (begin
-        (format #t "Error: Connection closed.~%")
-        (quit)))
-  (if (not last-msg-num)
-      ;; Start counting responses when we reach the first one.
-      (if (string-match "^:.* 001.*" line)
-          (set! last-msg-num 0)
-          (lp (read-line-irc)
-              last-msg-num))
-      ;; Verify that we received all expected responses.
-      (if (string-match (format #f "^:.* ~3'0d.*" (1+ last-msg-num)) line)
-          (if (< last-msg-num 4)
-              (lp (read-line-irc)
-                  (1+ last-msg-num))))))
-(display "done.") (newline)
-;; We are now connected to the IRC server.
+  ;; Setup the IRC connection.
+  (display "Setting up IRC connection...") (debug "~%")
+  (irc-send (format #f "NICK ~a" nick))
+  (irc-send (format #f "USER ~a 0 * :~a" user name))
+  ;; We should now have received responses 001-004 (right after the
+  ;; NOTICEs).  If not, then quit.
+  (let lp ((line (read-line-irc))
+           (last-msg-num #f))
+    (if (eof-object? line)
+        (begin
+          (format #t "Error: Connection closed.~%")
+          (quit)))
+    (if (not last-msg-num)
+        ;; Start counting responses when we reach the first one.
+        (if (string-match "^:.* 001.*" line)
+            (set! last-msg-num 0)
+            (lp (read-line-irc)
+                last-msg-num))
+        ;; Verify that we received all expected responses.
+        (if (string-match (format #f "^:.* ~3'0d.*" (1+ last-msg-num)) line)
+            (if (< last-msg-num 4)
+                (lp (read-line-irc)
+                    (1+ last-msg-num))))))
+  (display "done.") (newline)
+  ;; We are now connected to the IRC server.
 
-;; Join channels.
-(display "Joining channels...")
-(for-each join-channel channels)
-(format #t "done.~%")
+  ;; Join channels.
+  (display "Joining channels...")
+  (for-each join-channel channels)
+  (format #t "done.~%")
 
-;; Enter the message-polling loop.
-(do ((line (read-line-irc) (read-line-irc)))
-    ((eof-object? line))
-  (process-line line))
+  ;; Enter the message-polling loop.
+  (do ((line (read-line-irc) (read-line-irc)))
+      ((eof-object? line))
+    (process-line line)))
