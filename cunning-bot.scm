@@ -49,10 +49,9 @@
 (define (read-line-irc)
   "Read a line from an IRC connection, dropping the trailing CRLF."
   (let ((line (read-line in)))
-    (if (not (eof-object? line))
-        (begin
-          (set! line (string-drop-right line 1))
-          (debug "Read line ~s~%" line)))
+    (unless (eof-object? line)
+      (set! line (string-drop-right line 1))
+      (debug "Read line ~s~%" line))
     line))
 
 (define (pong line)
@@ -99,8 +98,8 @@ ignored."
   (let* ((match (string-match "\x01(.*)\x01" message))
          (ctcp (if match
                    #t #f)))
-    (if ctcp
-        (set! message (match:substring match 1)))
+    (when ctcp
+      (set! message (match:substring match 1)))
     (debug "~:[Message~;CTCP message~] received from ~s sent to ~s: ~s~%"
            ctcp sender target message)
     (debug "Running PRIVMSG hook.~%")
@@ -113,7 +112,7 @@ ignored."
 If MESSAGE is a command invocation, then attempt to execute it,
 catching unbound-variable errors.."
   (let* ((match (string-match (format #f "(~a: )?(\\S*)\\s*(.*)" nick)
-                                   message))
+                              message))
          (line-prefix (match:substring match 1))
          (direct (string=? nick target))
          (recipient (if direct sender target))
@@ -122,36 +121,34 @@ catching unbound-variable errors.."
            'cmd-
            (string->symbol (match:substring match 2))))
          (args (match:substring match 3)))
-    (when (and match (not ctcp))
-      (debug "Received command invocation~%")
-      (debug "~/line-prefix => ~s~%" line-prefix)
-      (debug "~/direct => ~s~%" direct))
     ;; Only respond if the message was sent directly to me or it is
     ;; prefixed with my nick (i.e. "nick: cmd ...").
     (when (and match
                (or direct line-prefix)
                (not ctcp))
-     ;; Try to execute the command procudure.  If there is no such
-     ;; procedure, then reply with an error message saying so.
-     (catch 'unbound-variable
-       (lambda ()
-         (let ((result (eval (list cmd-procname sender args) (current-module))))
-           (if (string? result)
-               (send-privmsg result recipient))))
-       (lambda (key subr message args rest)
-         (send-privmsg (apply format (append (list #f message) args))
-                       ;; If the command was sent directly to me, then
-                       ;; reply directly to the sender, otherwise,
-                       ;; assume it was sent to a channel and reply to
-                       ;; the channel.
-                       recipient))))))
+      (debug "Received command invocation.~%")
+      ;; Try to execute the command procudure.  If there is no such
+      ;; procedure, then reply with an error message saying so.
+      (catch 'unbound-variable
+        (lambda ()
+          (let ((result (eval (list cmd-procname sender args) (current-module))))
+            (if (string? result)
+                (send-privmsg result recipient))))
+        (lambda (key subr message args rest)
+          (send-privmsg (apply format (append (list #f message) args))
+                        ;; If the command was sent directly to me, then
+                        ;; reply directly to the sender, otherwise,
+                        ;; assume it was sent to a channel and reply to
+                        ;; the channel.
+                        recipient))))))
 (add-hook! privmsg-hook handle-commands)
 
 (define (version-respond sender target message ctcp)
   "Respond to CTCP VERSION requests."
-  (debug "Responding to CTCP message: ~s sent by ~s~%" message sender)
-  (if (string=? "VERSION" message)
-      (irc-send (format #f "NOTICE ~a :~a" sender version))))
+  (when (and ctcp
+             (string=? "VERSION" message))
+    (debug "Responding to VERSION request sent by ~s~%" sender)
+    (irc-send (format #f "NOTICE ~a :~a" sender version))))
 (add-hook! privmsg-hook version-respond)
 
 (define (start-bot server port channels)
@@ -182,10 +179,10 @@ catching unbound-variable errors.."
             (lp (read-line-irc)
                 last-msg-num))
         ;; Verify that we received all expected responses.
-        (if (string-match (format #f "^:.* ~3'0d.*" (1+ last-msg-num)) line)
-            (if (< last-msg-num 4)
-                (lp (read-line-irc)
-                    (1+ last-msg-num))))))
+        (when (and (string-match (format #f "^:.* ~3'0d.*" (1+ last-msg-num)) line)
+                   (< last-msg-num 4))
+          (lp (read-line-irc)
+              (1+ last-msg-num)))))
   (display "done.") (newline)
   ;; We are now connected to the IRC server.
 
