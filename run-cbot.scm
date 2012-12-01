@@ -20,4 +20,4 @@
 (use-modules (cunning-bot))
 
 (load "commands.scm")
-(start-bot "chat.freenode.net" 6667 '("#cbot"))
+(start-bot "irc.example.net" 6667 '("#example"))
