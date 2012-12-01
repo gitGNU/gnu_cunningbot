@@ -68,12 +68,13 @@ LINE should be an IRC PING command from the server."
   "Wrap CTCP ACTION markup around MESSAGE."
   (format #f "\x01ACTION ~a\x01" message))
 
-(define (join-channel channel)
-  "Send a JOIN request for CHANNEL.
+(define (join-channels channels)
+  "Send a JOIN request for CHANNELS.
 
 This does not (yet) handle JOIN responses, so errors are silently
 ignored."
-  (irc-send (format #f "JOIN ~a" channel)))
+  (irc-send (format #f "JOIN ~a"
+                    (string-join channels ","))))
 
 (define (quit-irc)
   "Send a QUIT message to the server (to cleanly disconnect)."
@@ -190,7 +191,7 @@ catching unbound-variable errors.."
 
   ;; Join channels.
   (display "Joining channels...")
-  (for-each join-channel channels)
+  (join-channels channels)
   (format #t "done.~%")
 
   ;; Enter the message-polling loop.
