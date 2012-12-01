@@ -41,31 +41,6 @@
 ;; `privmsg-hook' is run with the arguments (sender target message ctcp).
 (define privmsg-hook (make-hook 4))
 
-(define (process-line line)
-  "Process a line from the IRC server."
-  (cond
-   ;; PONG PINGs.
-   ((string-match "^PING" line)
-    (pong line))
-   ;; PRIVMSGs
-   ((string-match "^:(.*)!.*@.* PRIVMSG (.*) :(.*)" line) =>
-    (lambda (match)
-      (handle-privmsg (match:substring match 1)
-                      (match:substring match 2)
-                      (match:substring match 3))))))
-
-(define (pong line)
-  "Reply to a ping represented by LINE.
-LINE should be an IRC PING command from the server."
-  (irc-send (format #f "PONG~a" (substring line 4))))
-
-(define (version-respond sender target message ctcp)
-  "Respond to CTCP VERSION requests."
-  (debug "Responding to CTCP message: ~s sent by ~s~%" message sender)
-  (if (string=? "VERSION" message)
-      (irc-send (format #f "NOTICE ~a :~a" sender version))))
-(add-hook! privmsg-hook version-respond)
-
 (define (irc-send string)
   "Send STRING to the IRC server."
   (debug "Sending line: ~s~%" string)
@@ -79,6 +54,11 @@ LINE should be an IRC PING command from the server."
           (set! line (string-drop-right line 1))
           (debug "Read line ~s~%" line)))
     line))
+
+(define (pong line)
+  "Reply to a ping represented by LINE.
+LINE should be an IRC PING command from the server."
+  (irc-send (format #f "PONG~a" ) (substring line 4)))
 
 (define (send-privmsg message target)
   "Send a PRIVMSG MESSAGE to TARGET."
@@ -99,6 +79,31 @@ ignored."
   "Send a QUIT message to the server (to cleanly disconnect)."
   (format #t "Quitting...~%")
   (irc-send "QUIT"))
+
+(define (process-line line)
+  "Process a line from the IRC server."
+  (cond
+   ;; PONG PINGs.
+   ((string-match "^PING" line)
+    (pong line))
+   ;; PRIVMSGs
+   ((string-match "^:(.*)!.*@.* PRIVMSG (.*) :(.*)" line) =>
+    (lambda (match)
+      (handle-privmsg (match:substring match 1)
+                      (match:substring match 2)
+                      (match:substring match 3))))))
+
+(define (handle-privmsg sender target message)
+  "Parse and respond to PRIVMSGs."
+  (let* ((match (string-match "\x01(.*)\x01" message))
+         (ctcp (if match
+                   #t #f)))
+    (if ctcp
+        (set! message (match:substring match 1)))
+    (debug "~:[Message~;CTCP message~] received from ~s sent to ~s: ~s~%"
+           ctcp sender target message)
+    (debug "Running PRIVMSG hook.~%")
+    (run-hook privmsg-hook sender target message ctcp)))
 
 ;; Command procedure names are the command name prepended with cmd-
 (define (handle-commands sender target message ctcp)
@@ -141,17 +146,12 @@ catching unbound-variable errors.."
                        recipient))))))
 (add-hook! privmsg-hook handle-commands)
 
-(define (handle-privmsg sender target message)
-  "Parse and respond to PRIVMSGs."
-  (let* ((match (string-match "\x01(.*)\x01" message))
-         (ctcp (if match
-                   #t #f)))
-    (if ctcp
-        (set! message (match:substring match 1)))
-    (debug "~:[Message~;CTCP message~] received from ~s sent to ~s: ~s~%"
-           ctcp sender target message)
-    (debug "Running PRIVMSG hook.~%")
-    (run-hook privmsg-hook sender target message ctcp)))
+(define (version-respond sender target message ctcp)
+  "Respond to CTCP VERSION requests."
+  (debug "Responding to CTCP message: ~s sent by ~s~%" message sender)
+  (if (string=? "VERSION" message)
+      (irc-send (format #f "NOTICE ~a :~a" sender version))))
+(add-hook! privmsg-hook version-respond)
 
 (define (start-bot server port channels)
   ;; Establish TCP connection.
