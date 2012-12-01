@@ -19,10 +19,8 @@
   #:use-module (ice-9 regex)
   #:use-module (ice-9 format)
   #:use-module (spells network)
-  #:export (send-privmsg
-            send-action
+  #:export (make-action
             join-channel
-            channel-name?
             start-bot))
 
 (define line-end "\r\n")
@@ -43,10 +41,6 @@
 ;; `handle-privmsg-hook' is run with the arguments SENDER TARGET and
 ;; MESSAGE.
 (define handle-privmsg-hook (make-hook 3))
-
-(define (channel-name? string)
-  "Returns whether STRING is a channel name."
-  (string-match "^#" string))
 
 (define (process-line line)
   "Process a line from the IRC server."
@@ -90,12 +84,9 @@ LINE should be an IRC PING command from the server."
   "Send a PRIVMSG MESSAGE to TARGET."
   (irc-send (format #f "PRIVMSG ~a :~a" target message)))
 
-(define (send-action message target)
-  "Send MESSAGE to target as a CTCP ACTION.
-
-Essentially a convenience wrapper around `send-privmsg'."
-  (send-privmsg (format #f "\x01ACTION ~a\x01" message)
-                target))
+(define (make-action message)
+  "Wrap CTCP ACTION markup around MESSAGE."
+  (format #f "\x01ACTION ~a\x01" message))
 
 (define (join-channel channel)
   "Send a JOIN request for CHANNEL.
@@ -110,30 +101,40 @@ ignored."
   (irc-send "QUIT"))
 
 ;; Command procedure names are the command name prepended with cmd-
-(define (handle-command line sender target)
-  "Handle a command and its arguments on LINE."
-  (let* ((line-match (string-match "(\\S*)\\s*(.*)" line))
+(define (run-commands sender target message)
+  "Execute command invocations."
+  (let* ((match (string-match (format #f "(~a: )?(\\S*)\\s*(.*)" nick)
+                                   message))
+         (line-prefix (match:substring match 1))
+         (direct (string=? nick target))
+         (recipient (if direct sender target))
          (cmd-procname
           (symbol-append
            'cmd-
-           (string->symbol (match:substring line-match 1))))
-         (args (match:substring line-match 2)))
-    ;; Try to execute the command procudure.  If there is no such
-    ;; procedure, then reply with an error message saying so.
-    (catch 'unbound-variable
-      (lambda ()
-        (let ((result (eval (list cmd-procname sender target args) (current-module))))
-          (if (string? result)
-              (irc-send result))))
-      (lambda (key subr message args rest)
-        (send-privmsg (apply format (append (list #f message) args))
-                      ;; If the command was sent directly to me, then
-                      ;; reply directly to the sender, otherwise,
-                      ;; assume it was sent to a channel and reply to
-                      ;; the channel.
-                      (if (string=? nick target)
-                          sender
-                          target))))))
+           (string->symbol (match:substring match 2))))
+         (args (match:substring match 3)))
+    (when match
+      (debug "Received command invocation~%")
+      (debug "~/line-prefix => ~s~%" line-prefix)
+      (debug "~/direct => ~s~%" direct))
+    ;; Only respond if the message was sent directly to me or it is
+    ;; prefixed with my nick (i.e. "nick: cmd ...").
+    (when (and match
+               (or direct line-prefix))
+     ;; Try to execute the command procudure.  If there is no such
+     ;; procedure, then reply with an error message saying so.
+     (catch 'unbound-variable
+       (lambda ()
+         (let ((result (eval (list cmd-procname sender args) (current-module))))
+           (if (string? result)
+               (send-privmsg result recipient))))
+       (lambda (key subr message args rest)
+         (send-privmsg (apply format (append (list #f message) args))
+                       ;; If the command was sent directly to me, then
+                       ;; reply directly to the sender, otherwise,
+                       ;; assume it was sent to a channel and reply to
+                       ;; the channel.
+                       recipient))))))
 
 (define (handle-privmsg sender target message)
   "Parse and respond to PRIVMSGs."
@@ -148,21 +149,7 @@ ignored."
           (debug "CTCP message.~%")
           (handle-ctcp (match:substring match 1) sender))
         (begin ; It is a regular PRIVMSG.
-          (cond
-           ;; If the message was sent to a channel, then respond only
-           ;; to messages of the form "NICK: CMD" as a command.
-           ((channel-name? target)
-            (set! match (string-match (format #f "^~a: (.*)" nick) message))
-            (if match
-                (handle-command (match:substring match 1)
-                                sender
-                                target)))
-           ;; If the message was sent to the us directly, then treat
-           ;; the whole line as a command.
-           ((string=? nick target)
-            (handle-command message
-                            sender
-                            sender)))))))
+          (run-commands sender target message)))))
 
 (define (start-bot server port channels)
   ;; Establish TCP connection.

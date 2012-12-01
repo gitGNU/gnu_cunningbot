@@ -14,14 +14,10 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(define (cmd-flay sender target args)
+(define (cmd-flay sender args)
   (if (string-null? args)
-      (send-privmsg "Who do you want me to flay?" target)
-      (send-action (string-append "flays " args ".") target)))
+      "Who do you want me to flay?"
+      (make-action (string-append "flays " args ".") target)))
 
-(define (cmd-say-hello sender target args)
-  (send-privmsg
-   (if (channel-name? target)
-       (string-append sender ": Hello!")
-       "Hello!")
-   target))
+(define (cmd-say-hello sender args)
+  (string-append sender ": Hello!"))
