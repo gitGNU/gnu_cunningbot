@@ -38,9 +38,8 @@
   (when debugging
     (format #t s exp ...)))
 
-;; `handle-privmsg-hook' is run with the arguments SENDER TARGET and
-;; MESSAGE.
-(define handle-privmsg-hook (make-hook 3))
+;; `privmsg-hook' is run with the arguments (sender target message ctcp).
+(define privmsg-hook (make-hook 4))
 
 (define (process-line line)
   "Process a line from the IRC server."
@@ -60,11 +59,12 @@
 LINE should be an IRC PING command from the server."
   (irc-send (format #f "PONG~a" (substring line 4))))
 
-(define (handle-ctcp msg target)
-  "Respond to a CTCP PRIVMSG sent by TARGET."
-  (debug "Responding to CTCP message: ~s sent by ~s~%" target)
-  (if (string=? "VERSION" msg)
-      (irc-send (format #f "NOTICE ~a :~a" target version))))
+(define (version-respond sender target message ctcp)
+  "Respond to CTCP VERSION requests."
+  (debug "Responding to CTCP message: ~s sent by ~s~%" message sender)
+  (if (string=? "VERSION" message)
+      (irc-send (format #f "NOTICE ~a :~a" sender version))))
+(add-hook! privmsg-hook version-respond)
 
 (define (irc-send string)
   "Send STRING to the IRC server."
@@ -101,8 +101,11 @@ ignored."
   (irc-send "QUIT"))
 
 ;; Command procedure names are the command name prepended with cmd-
-(define (run-commands sender target message)
-  "Execute command invocations."
+(define (handle-commands sender target message ctcp)
+  "Parse and execute command invocations.
+
+If MESSAGE is a command invocation, then attempt to execute it,
+catching unbound-variable errors.."
   (let* ((match (string-match (format #f "(~a: )?(\\S*)\\s*(.*)" nick)
                                    message))
          (line-prefix (match:substring match 1))
@@ -113,14 +116,15 @@ ignored."
            'cmd-
            (string->symbol (match:substring match 2))))
          (args (match:substring match 3)))
-    (when match
+    (when (and match (not ctcp))
       (debug "Received command invocation~%")
       (debug "~/line-prefix => ~s~%" line-prefix)
       (debug "~/direct => ~s~%" direct))
     ;; Only respond if the message was sent directly to me or it is
     ;; prefixed with my nick (i.e. "nick: cmd ...").
     (when (and match
-               (or direct line-prefix))
+               (or direct line-prefix)
+               (not ctcp))
      ;; Try to execute the command procudure.  If there is no such
      ;; procedure, then reply with an error message saying so.
      (catch 'unbound-variable
@@ -135,21 +139,19 @@ ignored."
                        ;; assume it was sent to a channel and reply to
                        ;; the channel.
                        recipient))))))
+(add-hook! privmsg-hook handle-commands)
 
 (define (handle-privmsg sender target message)
   "Parse and respond to PRIVMSGs."
-  (let ((match (string-match "\x01(.*)\x01" message)))
-    (debug "Message received from ~s sent to ~s: ~s~%"
-           sender target message)
-    (run-hook handle-privmsg-hook
-              sender target message)
-    ;; Check whether it's a CTCP message.
-    (if match
-        (begin ; It is a CTCP message.
-          (debug "CTCP message.~%")
-          (handle-ctcp (match:substring match 1) sender))
-        (begin ; It is a regular PRIVMSG.
-          (run-commands sender target message)))))
+  (let* ((match (string-match "\x01(.*)\x01" message))
+         (ctcp (if match
+                   #t #f)))
+    (if ctcp
+        (set! message (match:substring match 1)))
+    (debug "~:[Message~;CTCP message~] received from ~s sent to ~s: ~s~%"
+           ctcp sender target message)
+    (debug "Running PRIVMSG hook.~%")
+    (run-hook privmsg-hook sender target message ctcp)))
 
 (define (start-bot server port channels)
   ;; Establish TCP connection.
