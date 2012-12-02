@@ -43,10 +43,14 @@
 (define set-conn (record-modifier bot-type 'conn))
 
 (define (get-bot-out-port bot)
-  (connection-output-port (get-conn bot)))
+  (let ((conn (get-conn bot)))
+    (when (connection? conn)
+      (connection-output-port conn))))
 
 (define (get-bot-in-port bot)
-  (connection-input-port (get-conn bot)))
+  (let ((conn (get-conn bot)))
+    (when (connection? conn)
+      (connection-input-port conn))))
 
 (define (disconnect-bot bot)
   (let ((conn (get-conn bot)))
