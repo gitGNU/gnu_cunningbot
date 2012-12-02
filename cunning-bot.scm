@@ -110,31 +110,36 @@ ignored."
   "Parse and execute command invocations.
 
 If MESSAGE is a command invocation, then attempt to execute it,
-catching unbound-variable errors.."
+catching and reporting any errors."
   (let* ((match (string-match (format #f "(~a: )?(\\S*)\\s*(.*)" nick)
                               message))
          (line-prefix (match:substring match 1))
          (direct (string=? nick target))
          (recipient (if direct sender target))
-         (cmd-procname
-          (symbol-append
-           'cmd-
-           (string->symbol (match:substring match 2))))
+         (command
+          (string->symbol (match:substring match 2)))
          (args (match:substring match 3)))
     ;; Only respond if the message was sent directly to me or it is
     ;; prefixed with my nick (i.e. "nick: cmd ...").
     (when (and match
                (or direct line-prefix)
                (not ctcp))
-      (debug "Received command invocation.~%")
+      (debug "Received command invocation; looking up ~s~%" command)
       ;; Try to execute the command procudure.  If there is no such
       ;; procedure, then reply with an error message saying so.
-      (catch 'unbound-variable
+      (catch #t
         (lambda ()
-          (let ((result (eval (list cmd-procname sender args) (current-module))))
+          (let ((result (eval (list command sender args)
+                              (resolve-module '(commands)))))
             (if (string? result)
-                (send-privmsg result recipient))))
+                (begin
+                  (debug "Command ran successfully.~%")
+                  (send-privmsg result recipient))
+                (begin
+                  (debug "The command raised an error.~%")
+                  (error "Command return value not a string.")))))
         (lambda (key subr message args rest)
+          (debug "No such command.~%")
           (send-privmsg (apply format (append (list #f message) args))
                         ;; If the command was sent directly to me, then
                         ;; reply directly to the sender, otherwise,
