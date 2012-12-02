@@ -14,7 +14,7 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (cunning-bot)
+(define-module (cunning-bot bot)
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 regex)
   #:use-module (ice-9 format)
@@ -196,7 +196,7 @@ catching and reporting any errors."
       (catch #t
         (lambda ()
           (let ((result (eval (list command sender args)
-                              (resolve-module '(commands)))))
+                              (resolve-module '(cunning-bot commands)))))
             (if (string? result)
                 (begin
                   (debug "Command ran successfully.~%")
