@@ -14,7 +14,8 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (commands))
+(define-module (commands)
+  #:use-module (cunning-bot))
 
 (define-public (flay sender args)
   (if (string-null? args)

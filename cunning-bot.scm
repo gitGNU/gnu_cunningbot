@@ -19,7 +19,8 @@
   #:use-module (ice-9 regex)
   #:use-module (ice-9 format)
   #:use-module (spells network)
-  #:export (make-action
+  #:export (make-bot
+            make-action
             join-channel
             start-bot))
 
@@ -30,70 +31,100 @@
 (define user "Cunning_Bot")
 (define name "Cunning Bot")
 
-(define conn)
-(define in)
-(define out)
+(define bot-type (make-record-type "bot" '(server port conn)))
+
+(define (make-bot server port)
+  ((record-constructor bot-type) server port #f))
+
+(define get-server (record-accessor bot-type 'server))
+(define get-port (record-accessor bot-type 'port))
+
+(define get-conn (record-accessor bot-type 'conn))
+(define set-conn (record-modifier bot-type 'conn))
+
+(define (get-bot-out-port bot)
+  (connection-output-port (get-conn bot)))
+
+(define (get-bot-in-port bot)
+  (connection-input-port (get-conn bot)))
+
+(define (disconnect-bot bot)
+  (let ((conn (get-conn bot)))
+    (when (connection? conn)
+      (close-connection conn))))
+
+(define (connect-bot bot)
+  (disconnect-bot bot)
+  (let ((server (get-server bot))
+        (port (get-port bot)))
+    (format #t "Establishing TCP connection to ~a on port ~d..."
+            server port)
+    (set-conn bot (open-tcp-connection server port)))
+  (format #t "done.~%"))
 
 (define-syntax-rule (debug s exp ...)
   (when debugging
     (format #t s exp ...)))
 
-;; `privmsg-hook' is run with the arguments (sender target message ctcp).
-(define privmsg-hook (make-hook 4))
+;; `privmsg-hook' is run with the arguments (bot sender target message ctcp).
+(define privmsg-hook (make-hook 5))
 
-(define (irc-send string)
-  "Send STRING to the IRC server."
+(define (irc-send bot string)
+  "Send STRING to the IRC server associated with BOT."
   (debug "Sending line: ~s~%" string)
-  (format out "~a~a" string line-end))
+  (format (get-bot-out-port bot)
+          "~a~a" string line-end))
 
-(define (read-line-irc)
-  "Read a line from an IRC connection, dropping the trailing CRLF."
-  (let ((line (read-line in)))
+(define (read-line-irc bot)
+  "Read a line from the IRC connection associated with BOT, dropping
+the trailing CRLF."
+  (let ((line (read-line (get-bot-in-port bot))))
     (unless (eof-object? line)
       (set! line (string-drop-right line 1))
       (debug "Read line ~s~%" line))
     line))
 
 (define (pong line)
-  "Reply to a ping represented by LINE.
+  "Return a PING response to the ping represented by LINE.
 LINE should be an IRC PING command from the server."
-  (irc-send (format #f "PONG ~a" (substring line 6))))
+  (format #f "PONG ~a" (substring line 6)))
 
-(define (send-privmsg message target)
+(define (send-privmsg bot message target)
   "Send a PRIVMSG MESSAGE to TARGET."
-  (irc-send (format #f "PRIVMSG ~a :~a" target message)))
+  (irc-send bot (format #f "PRIVMSG ~a :~a" target message)))
 
 (define (make-action message)
   "Wrap CTCP ACTION markup around MESSAGE."
   (format #f "\x01ACTION ~a\x01" message))
 
-(define (join-channels channels)
+(define (join-channels bot channels)
   "Send a JOIN request for CHANNELS.
 
 This does not (yet) handle JOIN responses, so errors are silently
 ignored."
-  (irc-send (format #f "JOIN ~a"
-                    (string-join channels ","))))
+  (irc-send bot (format #f "JOIN ~a"
+                        (string-join channels ","))))
 
-(define (quit-irc)
+(define (quit-irc bot)
   "Send a QUIT message to the server (to cleanly disconnect)."
   (format #t "Quitting...~%")
-  (irc-send "QUIT"))
+  (irc-send bot "QUIT"))
 
-(define (process-line line)
+(define (process-line bot line)
   "Process a line from the IRC server."
   (cond
    ;; PONG PINGs.
    ((string-match "^PING" line)
-    (pong line))
+    (irc-send bot (pong line)))
    ;; PRIVMSGs
    ((string-match "^:(.*)!.*@.* PRIVMSG (.*) :(.*)" line) =>
     (lambda (match)
-      (handle-privmsg (match:substring match 1)
+      (handle-privmsg bot
+                      (match:substring match 1)
                       (match:substring match 2)
                       (match:substring match 3))))))
 
-(define (handle-privmsg sender target message)
+(define (handle-privmsg bot sender target message)
   "Parse and respond to PRIVMSGs."
   (let* ((match (string-match "\x01(.*)\x01" message))
          (ctcp (if match
@@ -103,10 +134,10 @@ ignored."
     (debug "~:[Message~;CTCP message~] received from ~s sent to ~s: ~s~%"
            ctcp sender target message)
     (debug "Running PRIVMSG hook.~%")
-    (run-hook privmsg-hook sender target message ctcp)))
+    (run-hook privmsg-hook bot sender target message ctcp)))
 
 ;; Command procedure names are the command name prepended with cmd-
-(define (handle-commands sender target message ctcp)
+(define (handle-commands bot sender target message ctcp)
   "Parse and execute command invocations.
 
 If MESSAGE is a command invocation, then attempt to execute it,
@@ -134,11 +165,11 @@ catching and reporting any errors."
             (if (string? result)
                 (begin
                   (debug "Command ran successfully.~%")
-                  (send-privmsg result recipient))
+                  (send-privmsg bot result recipient))
                 (error "Command return value not a string."))))
         (lambda (key subr message args rest)
           (debug "The command failed. :(~%")
-          (send-privmsg (apply format (append (list #f message) args))
+          (send-privmsg bot (apply format (append (list #f message) args))
                         ;; If the command was sent directly to me, then
                         ;; reply directly to the sender, otherwise,
                         ;; assume it was sent to a channel and reply to
@@ -146,55 +177,50 @@ catching and reporting any errors."
                         recipient))))))
 (add-hook! privmsg-hook handle-commands)
 
-(define (version-respond sender target message ctcp)
+(define (version-respond bot sender target message ctcp)
   "Respond to CTCP VERSION requests."
   (when (and ctcp
              (string=? "VERSION" message))
     (debug "Responding to VERSION request sent by ~s~%" sender)
-    (irc-send (format #f "NOTICE ~a :~a" sender version))))
+    (irc-send bot (format #f "NOTICE ~a :~a" sender version))))
 (add-hook! privmsg-hook version-respond)
 
-(define (start-bot server port channels)
+(define (start-bot bot channels)
   ;; Establish TCP connection.
-  (format #t "Establishing TCP connection to ~a on port ~d..."
-          server port)
-  (set! conn (open-tcp-connection server port))
-  (format #t "done.~%")
-  (set! in (connection-input-port conn))
-  (set! out (connection-output-port conn))
+  (connect-bot bot)
 
   ;; Setup the IRC connection.
   (display "Setting up IRC connection...") (debug "~%")
-  (irc-send (format #f "NICK ~a" nick))
-  (irc-send (format #f "USER ~a 0 * :~a" user name))
+  (irc-send bot (format #f "NICK ~a" nick))
+  (irc-send bot (format #f "USER ~a 0 * :~a" user name))
   ;; We should now have received responses 001-004 (right after the
   ;; NOTICEs).  If not, then quit.
-  (let lp ((line (read-line-irc))
+  (let lp ((line (read-line-irc bot))
            (last-msg-num #f))
     (if (eof-object? line)
         (begin
           (format #t "Error: Connection closed.~%")
-          (quit)))
+          (quit bot)))
     (if (not last-msg-num)
         ;; Start counting responses when we reach the first one.
         (if (string-match "^:.* 001.*" line)
             (set! last-msg-num 0)
-            (lp (read-line-irc)
+            (lp (read-line-irc bot)
                 last-msg-num))
         ;; Verify that we received all expected responses.
         (when (and (string-match (format #f "^:.* ~3'0d.*" (1+ last-msg-num)) line)
                    (< last-msg-num 4))
-          (lp (read-line-irc)
+          (lp (read-line-irc bot)
               (1+ last-msg-num)))))
   (display "done.") (newline)
   ;; We are now connected to the IRC server.
 
   ;; Join channels.
   (display "Joining channels...")
-  (join-channels channels)
+  (join-channels bot channels)
   (format #t "done.~%")
 
   ;; Enter the message-polling loop.
-  (do ((line (read-line-irc) (read-line-irc)))
+  (do ((line (read-line-irc bot) (read-line-irc bot)))
       ((eof-object? line))
-    (process-line line)))
+    (process-line bot line)))
