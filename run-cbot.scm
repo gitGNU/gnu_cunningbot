@@ -20,5 +20,5 @@
 (use-modules (cunning-bot))
 
 (load "commands.scm")
-(define bot (make-bot "irc.example.net" 6667))
+(define bot (make-bot "Cunning_Bot" "Cunning_Bot" "Cunning Bot" "irc.example.net" 6667))
 (start-bot bot '("#example"))

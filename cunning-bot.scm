@@ -27,17 +27,47 @@
 (define line-end "\r\n")
 (define version "Cunning Bot v0.1")
 (define debugging #f) ;; Whether to print debugging messages.
-(define nick "Cunning_Bot")
-(define user "Cunning_Bot")
-(define name "Cunning Bot")
 
-(define bot-type (make-record-type "bot" '(server port conn)))
+(define bot-type (make-record-type "bot" '(nick username realname server port conn)))
 
-(define (make-bot server port)
-  ((record-constructor bot-type) server port #f))
+(define (valid-nick/username/realname? string)
+  "Returns whether STRING is a valid nick, username, or realname."
+  (and (string? string)
+       (not (string-null? string))))
+
+(define (make-bot nick username realname server port)
+  (let ((bot ((record-constructor bot-type) #f #f #f server port #f)))
+    (set-nick bot nick)
+    (set-username bot username)
+    (set-realname bot realname)
+    bot))
 
 (define get-server (record-accessor bot-type 'server))
 (define get-port (record-accessor bot-type 'port))
+
+(define get-nick (record-accessor bot-type 'nick))
+(define (set-nick bot nick)
+  (if (not (valid-nick/username/realname? nick))
+      (error "Invalid nick.")
+      (begin
+        ((record-modifier bot-type 'nick) bot nick)
+        ;; Send NICK change message to the server if we're connected.
+        (let ((out (get-bot-out-port bot)))
+          (when (and (port? out)
+                     (not (port-closed? out)))
+            (irc-send bot (format #f "NICK ~a" nick)))))))
+
+(define get-username (record-accessor bot-type 'username))
+(define (set-username bot username)
+  (if (not (valid-nick/username/realname? username))
+      (error "Invalid username.")
+      ((record-modifier bot-type 'username) bot username)))
+
+(define get-realname (record-accessor bot-type 'realname))
+(define (set-realname bot realname)
+  (if (not (valid-nick/username/realname? realname))
+      (error "Invalid realrealname.")
+      ((record-modifier bot-type 'realname) bot realname)))
 
 (define get-conn (record-accessor bot-type 'conn))
 (define set-conn (record-modifier bot-type 'conn))
@@ -146,8 +176,9 @@ ignored."
 
 If MESSAGE is a command invocation, then attempt to execute it,
 catching and reporting any errors."
-  (let* ((match (string-match (format #f "(~a: )?(\\S*)\\s*(.*)" nick)
-                              message))
+   (let* ((nick (get-nick bot))
+          (match (string-match (format #f "(~a: )?(\\S*)\\s*(.*)" nick)
+                               message))
          (line-prefix (match:substring match 1))
          (direct (string=? nick target))
          (recipient (if direct sender target))
@@ -195,8 +226,9 @@ catching and reporting any errors."
 
   ;; Setup the IRC connection.
   (display "Setting up IRC connection...") (debug "~%")
-  (irc-send bot (format #f "NICK ~a" nick))
-  (irc-send bot (format #f "USER ~a 0 * :~a" user name))
+  (irc-send bot (format #f "NICK ~a" (get-nick bot)))
+  (irc-send bot (format #f "USER ~a 0 * :~a"
+                        (get-username bot) (get-realname bot)))
   ;; We should now have received responses 001-004 (right after the
   ;; NOTICEs).  If not, then quit.
   (let lp ((line (read-line-irc bot))
