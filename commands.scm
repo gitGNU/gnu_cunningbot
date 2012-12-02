@@ -14,10 +14,12 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(define (cmd-flay sender args)
+(define-module (commands))
+
+(define-public (flay sender args)
   (if (string-null? args)
       "Who do you want me to flay?"
       (make-action (string-append "flays " args ".") target)))
 
-(define (cmd-say-hello sender args)
+(define-public (say-hello sender args)
   (string-append sender ": Hello!"))
