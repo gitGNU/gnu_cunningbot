@@ -135,11 +135,9 @@ catching and reporting any errors."
                 (begin
                   (debug "Command ran successfully.~%")
                   (send-privmsg result recipient))
-                (begin
-                  (debug "The command raised an error.~%")
-                  (error "Command return value not a string.")))))
+                (error "Command return value not a string."))))
         (lambda (key subr message args rest)
-          (debug "No such command.~%")
+          (debug "The command failed. :(~%")
           (send-privmsg (apply format (append (list #f message) args))
                         ;; If the command was sent directly to me, then
                         ;; reply directly to the sender, otherwise,
