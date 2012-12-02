@@ -57,7 +57,7 @@
 (define (pong line)
   "Reply to a ping represented by LINE.
 LINE should be an IRC PING command from the server."
-  (irc-send (format #f "PONG~a" ) (substring line 4)))
+  (irc-send (format #f "PONG ~a" (substring line 6))))
 
 (define (send-privmsg message target)
   "Send a PRIVMSG MESSAGE to TARGET."
